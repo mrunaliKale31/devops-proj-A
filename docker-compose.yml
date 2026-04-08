@@ -1,0 +1,28 @@
+services:
+  frontend:
+    build: 
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - attendance-net
+    depends_on:
+      - backend
+
+  backend:
+    build: 
+      context: ./backend
+    ports:
+      - "9091:9091"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - attendance-net
+
+networks:
+  attendance-net:
+    driver: bridge
