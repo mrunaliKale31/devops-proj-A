@@ -50,7 +50,8 @@ export const parseAttendanceData = async (fileUrl) => {
         subject,
         faculty,
         timeslot,
-        status
+        status,
+        timestamp: new Date(date).getTime()
       });
       
       // Update subject-wise
@@ -59,11 +60,26 @@ export const parseAttendanceData = async (fileUrl) => {
           name: subject,
           faculty,
           conducted: 0,
-          attended: 0
+          attended: 0,
+          lastAttended: null,
+          lastAbsent: null,
         };
       }
       student.subjects[subject].conducted += 1;
-      if (status === 'Present') student.subjects[subject].attended += 1;
+      if (status === 'Present') {
+        student.subjects[subject].attended += 1;
+        // Keep track of latest present date
+        const currentLast = student.subjects[subject].lastAttended;
+        if (!currentLast || new Date(date) > new Date(currentLast)) {
+          student.subjects[subject].lastAttended = date;
+        }
+      } else {
+        // Keep track of latest absent date
+        const currentLastAbs = student.subjects[subject].lastAbsent;
+        if (!currentLastAbs || new Date(date) > new Date(currentLastAbs)) {
+          student.subjects[subject].lastAbsent = date;
+        }
+      }
     });
     
     // Compute percentages and format for each student
@@ -78,26 +94,51 @@ export const parseAttendanceData = async (fileUrl) => {
           : 0;
       });
 
+      // Find weakest subject
+      let weakest = null;
+      let lowestPct = 101;
+      Object.values(student.subjects).forEach(sub => {
+        if (sub.percentage < lowestPct) {
+          lowestPct = sub.percentage;
+          weakest = sub.name;
+        }
+      });
+      student.weakestSubject = weakest;
+
       // Sort history by Date descending
-      student.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+      student.history.sort((a, b) => b.timestamp - a.timestamp);
       
       // Calculate latest streak (last consecutive days attended)
       let streak = 0;
-      // Filter out duplicate dates to find daily presence streak
       const uniqueDates = [...new Set(student.history.map(h => h.date))];
       
       for (const date of uniqueDates) {
-        // If the student was present for at least one lecture on this day, count as streak
         const recordsThatDay = student.history.filter(h => h.date === date);
         const wasPresentAtAll = recordsThatDay.some(r => r.status === 'Present');
         
         if (wasPresentAtAll) {
           streak++;
         } else {
-          break; // break streak on first absent day backwards
+          break; 
         }
       }
       student.streak = streak;
+
+      // Calculate Weekly Summary (last 7 recorded days)
+      const last7Dates = uniqueDates.slice(0, 7);
+      let weeklyConducted = 0;
+      let weeklyAttended = 0;
+      student.history.forEach(h => {
+        if (last7Dates.includes(h.date)) {
+          weeklyConducted++;
+          if (h.status === 'Present') weeklyAttended++;
+        }
+      });
+      student.weeklySummary = {
+        conducted: weeklyConducted,
+        attended: weeklyAttended
+      };
+
     });
     
     return studentRecords;

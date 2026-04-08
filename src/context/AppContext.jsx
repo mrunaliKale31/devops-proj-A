@@ -8,6 +8,8 @@ export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Initialize Theme
   useEffect(() => {
@@ -29,26 +31,37 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Fetch Excel Data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const studentRecords = await parseAttendanceData('/data/attendance.xlsx');
-        setData(studentRecords);
-        
-        // Auto-login if previously logged in
-        const savedEnroll = localStorage.getItem('userEnrollment');
-        if (savedEnroll && studentRecords && studentRecords[savedEnroll]) {
-          setUser(studentRecords[savedEnroll]);
-        }
-      } catch (err) {
-        console.error('Failed to load initial data');
-      } finally {
-        setLoading(false);
+  const toggleNotifications = () => {
+    setNotificationsEnabled(!notificationsEnabled);
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const studentRecords = await parseAttendanceData('/data/attendance.xlsx');
+      setData(studentRecords);
+      setLastUpdated(new Date().toLocaleString());
+      
+      // Auto-update logged in user state
+      const savedEnroll = localStorage.getItem('userEnrollment');
+      if (savedEnroll && studentRecords && studentRecords[savedEnroll]) {
+        setUser(studentRecords[savedEnroll]);
       }
-    };
+    } catch (err) {
+      console.error('Failed to load initial data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial Fetch Excel Data
+  useEffect(() => {
     loadData();
   }, []);
+
+  const refreshData = async () => {
+    await loadData();
+  };
 
   const login = (enrollment, phone) => {
     if (!data) return { success: false, message: 'Data not loaded yet' };
@@ -79,6 +92,10 @@ export const AppProvider = ({ children }) => {
       loading,
       darkMode,
       toggleDarkMode,
+      notificationsEnabled,
+      toggleNotifications,
+      lastUpdated,
+      refreshData,
       login,
       logout
     }}>
