@@ -3,12 +3,6 @@ pipeline {
 
     stages {
 
-        stage('Clone Repository') {
-            steps {
-                git 'https://github.com/mrunaliKale31/devops-proj-A.git'
-            }
-        }
-
         stage('Install Backend Dependencies') {
             steps {
                 dir('backend') {
